@@ -14,14 +14,15 @@ Social app: send a stranger a famous painting + your thoughts/feelings about it.
 ## To-do
 - [x] Codex build: `supabase/schema.sql` + PWA (index.html, app.js, style.css, js/, manifest, sw)
 - [x] Review Codex output — fixed AIC double-`query[term]` 400 (bool-must form), tightened RPC grants (revoke from public), README SW-cache note
-- [ ] Supabase project: apply schema, fill `js/config.js`, seed test profiles
-- [ ] Netlify site + deploy (fill SITE_ID in deploy.sh after site creation)
-- [ ] Two-account end-to-end test (send → claim → read → friend → direct send; rate limit; pool recycle)
-- [ ] Verify AIC IIIF images render in a real browser (curl gets Cloudflare-403; expected bot filter, unverified)
-- [ ] TWA APK
+- [x] Supabase: project `zsmugtneymgohyekehdr` linked (CLI), schema pushed as migration `20260711000000_init`, `js/config.js` filled (sb_publishable key — legacy JWT keys disabled on new projects), auth site_url → artdrop.netlify.app
+- [x] Netlify: **live at https://artdrop.netlify.app** (site id in deploy.sh; deployed via draft→promote fallback)
+- [x] Logic e2e: 12/12 PASS via throwaway rollback migration impersonating users in SQL (delivery, daily slot, 3/day limit, repeat-claim, friend accept, direct send, pool oldest-first, 3-day recycle, block rules). DB left clean (0 profiles).
+- [ ] Himanshu: open artdrop.netlify.app, sign in (magic link email), create profile, send a painting — confirms UI + AIC images in a real browser (curl gets Cloudflare-403 on IIIF; browsers expected fine, unverified)
+- [ ] TWA APK after UI confirmed
 
-## Awaiting
-- Himanshu: create/log into a Supabase project (supabase.com) — needed before schema can be applied
+## Notes
+- Free tier: no custom email templates with default SMTP → sign-in email is a **magic link** (no code); ~2 auth emails/hour rate limit. Custom SMTP (e.g. Resend) is the upgrade path.
+- Service-role secret never materialized locally (blocked by policy); admin-API testing not used — SQL impersonation test instead.
 
 ## Next
-Supabase setup: apply schema.sql in SQL editor, enable email OTP, fill js/config.js.
+Himanshu smoke-tests the live app in a browser; then Bubblewrap TWA APK.
