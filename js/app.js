@@ -161,11 +161,12 @@ function render() {
 function renderAuth() {
   return `
     <div class="auth-card stack">
-      <p class="muted">Sign in with your email code to send and receive paintings.</p>
+      <p class="muted">Sign in with your email to send and receive paintings.</p>
       <label>Email
         <input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com">
       </label>
-      <button id="send-otp">Send code</button>
+      <button id="send-otp">Email me a sign-in link</button>
+      <p class="muted">Click the link in the email to sign in. If the email shows a code instead, enter it here:</p>
       <label>Code
         <input id="auth-code" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
       </label>
@@ -179,7 +180,7 @@ function bindAuth() {
     const email = document.querySelector("#auth-email").value.trim();
     if (!email) return setMessage("Enter your email address.");
     const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
-    setMessage(error ? error.message : "Check your email for the code.");
+    setMessage(error ? error.message : "Check your email for the sign-in link.");
   });
   document.querySelector("#verify-otp")?.addEventListener("click", async () => {
     const email = document.querySelector("#auth-email").value.trim();

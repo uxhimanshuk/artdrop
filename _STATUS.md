@@ -12,15 +12,16 @@ Social app: send a stranger a famous painting + your thoughts/feelings about it.
 - Full plan: `~/.claude/plans/hey-help-me-build-stateless-yao.md`
 
 ## To-do
-- [ ] Codex build: `supabase/schema.sql` + PWA (index.html, app.js, style.css, js/, manifest, sw)
-- [ ] Review Codex output
+- [x] Codex build: `supabase/schema.sql` + PWA (index.html, app.js, style.css, js/, manifest, sw)
+- [x] Review Codex output — fixed AIC double-`query[term]` 400 (bool-must form), tightened RPC grants (revoke from public), README SW-cache note
 - [ ] Supabase project: apply schema, fill `js/config.js`, seed test profiles
-- [ ] Netlify site + deploy
+- [ ] Netlify site + deploy (fill SITE_ID in deploy.sh after site creation)
 - [ ] Two-account end-to-end test (send → claim → read → friend → direct send; rate limit; pool recycle)
+- [ ] Verify AIC IIIF images render in a real browser (curl gets Cloudflare-403; expected bot filter, unverified)
 - [ ] TWA APK
 
 ## Awaiting
 - Himanshu: create/log into a Supabase project (supabase.com) — needed before schema can be applied
 
 ## Next
-Codex build running; review diff when done.
+Supabase setup: apply schema.sql in SQL editor, enable email OTP, fill js/config.js.
