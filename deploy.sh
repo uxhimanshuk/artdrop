@@ -28,8 +28,7 @@ if [ "$day_count" -ge 90 ]; then
   echo "⚠️  Approaching the 100-deploys/day limit (${day_count}/100). Deploy sparingly."
 fi
 
-# Filled in when the Netlify site is created (needed only for the 403 fallback).
-SITE_ID=""
+SITE_ID="fae2383a-7500-4a51-9d00-d5d69a0162ed"
 
 if [ "$#" -ne 0 ]; then
   echo "▶ Running: netlify deploy $*"
