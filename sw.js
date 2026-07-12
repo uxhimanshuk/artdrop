@@ -1,4 +1,4 @@
-const CACHE_NAME = "artdrop-shell-v1";
+const CACHE_NAME = "artdrop-shell-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -6,7 +6,7 @@ const APP_SHELL = [
   "./manifest.json",
   "./js/config.js",
   "./js/supabase.js",
-  "./js/aic.js",
+  "./js/met.js",
   "./js/countries.js",
   "./js/app.js",
   "./icons/icon-192.png",

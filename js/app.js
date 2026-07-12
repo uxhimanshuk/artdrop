@@ -1,4 +1,4 @@
-import { debounce, imageUrl, searchArtworks, surpriseArtwork } from "./aic.js";
+import { debounce, searchArtworks, surpriseArtwork } from "./met.js";
 import { COUNTRIES, COUNTRY_OPTIONS, countryName } from "./countries.js";
 import { isConfigured, supabase } from "./supabase.js";
 
@@ -14,6 +14,9 @@ const state = {
   searchResults: [],
   selectedArtwork: null,
   composeFriend: null,
+  targetMode: "country",
+  targetPin: null,
+  onboardingPin: null,
   journalTab: "received",
   loading: false,
   message: ""
@@ -32,6 +35,39 @@ const countryOptions = (selected = "US") =>
   COUNTRY_OPTIONS.map(
     ([code, name]) => `<option value="${code}" ${code === selected ? "selected" : ""}>${h(name)}</option>`
   ).join("");
+
+function coordinateLabel(location) {
+  return location ? `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}` : "No location selected.";
+}
+
+function createMapPicker(elementId, initialLocation, onChange) {
+  const element = document.getElementById(elementId);
+  if (!element) return null;
+  if (!window.L) {
+    element.textContent = "The map could not be loaded.";
+    return null;
+  }
+
+  const center = initialLocation || { lat: 20, lng: 0 };
+  const map = window.L.map(element).setView([center.lat, center.lng], initialLocation ? 6 : 2);
+  window.L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+
+  let marker = initialLocation ? window.L.marker([initialLocation.lat, initialLocation.lng]).addTo(map) : null;
+  map.on("click", ({ latlng }) => {
+    const location = {
+      lat: Number(latlng.lat.toFixed(6)),
+      lng: Number(latlng.lng.toFixed(6))
+    };
+    if (marker) marker.setLatLng(latlng);
+    else marker = window.L.marker(latlng).addTo(map);
+    onChange(location);
+  });
+  window.setTimeout(() => map.invalidateSize(), 0);
+  return map;
+}
 
 function setMessage(message) {
   state.message = message || "";
@@ -203,6 +239,14 @@ function renderOnboarding() {
         <label>Country
           <select name="country" required>${countryOptions("US")}</select>
         </label>
+        <div class="stack location-picker">
+          <div>
+            <p class="card-title">Put yourself on the map <span class="meta">(optional)</span></p>
+            <p class="meta">Tap the map so pin-targeted paintings can find you.</p>
+          </div>
+          <div id="onboarding-map" class="map" aria-label="Choose your location on a map"></div>
+          <p id="onboarding-coordinates" class="meta">${coordinateLabel(state.onboardingPin)}</p>
+        </div>
         <button>Create profile</button>
       </form>
     `
@@ -210,6 +254,10 @@ function renderOnboarding() {
 }
 
 function bindOnboarding() {
+  createMapPicker("onboarding-map", state.onboardingPin, (location) => {
+    state.onboardingPin = location;
+    document.querySelector("#onboarding-coordinates").textContent = coordinateLabel(location);
+  });
   document.querySelector("#onboarding")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -218,7 +266,9 @@ function bindOnboarding() {
     const { error } = await supabase.from("profiles").insert({
       id: state.session.user.id,
       username,
-      country
+      country,
+      lat: state.onboardingPin?.lat ?? null,
+      lng: state.onboardingPin?.lng ?? null
     });
     if (error) return setMessage(error.message);
     await loadProfile();
@@ -266,7 +316,7 @@ function paintingDetail(send, { daily = false } = {}) {
   const canFriend = daily && !send.direct;
   return `
     <article class="art-hero" data-send-id="${h(send.id)}">
-      <img src="${h(imageUrl(art.image_id, 843))}" alt="${h(art.title)}">
+      <img src="${h(art.image_large || art.image_small)}" alt="${h(art.title)}">
       <div class="caption">
         <h2 class="art-title">${h(art.title)}</h2>
         <p class="meta">${h(art.artist)}${art.date ? `, ${h(art.date)}` : ""}</p>
@@ -359,7 +409,7 @@ function renderSend() {
           <input id="art-search" placeholder="Search paintings" autocomplete="off">
           <button id="surprise" class="secondary">Surprise me</button>
         </div>
-        <div id="search-status" class="meta">${state.searchResults.length ? "" : "Search the Art Institute of Chicago collection."}</div>
+        <div id="search-status" class="meta">${state.searchResults.length ? "" : "Search The Met collection."}</div>
         <div id="results" class="grid">${state.searchResults.map(artCard).join("")}</div>
         ${state.selectedArtwork ? composePanel(friend, remaining) : ""}
       </div>
@@ -379,7 +429,7 @@ function remainingSends() {
 function artCard(art, index) {
   return `
     <button class="art-card" data-art-index="${index}">
-      <img src="${h(imageUrl(art.image_id, 400))}" alt="${h(art.title)}" loading="lazy">
+      <img src="${h(art.image_small)}" alt="${h(art.title)}" loading="lazy">
       <span class="body">
         <p class="card-title">${h(art.title)}</p>
         <p class="meta">${h(art.artist)}</p>
@@ -393,7 +443,7 @@ function composePanel(friend, remaining) {
   return `
     <form id="compose" class="compose-panel stack">
       <div class="compose-preview">
-        <img src="${h(imageUrl(art.image_id, 843))}" alt="${h(art.title)}">
+        <img src="${h(art.image_large || art.image_small)}" alt="${h(art.title)}">
         <div>
           <h2 class="art-title">${h(art.title)}</h2>
           <p class="meta">${h(art.artist)}${art.date ? `, ${h(art.date)}` : ""}</p>
@@ -406,9 +456,20 @@ function composePanel(friend, remaining) {
       ${
         friend
           ? ""
-          : `<label>Target country
-              <select id="target-country">${countryOptions(state.profile?.country || "US")}</select>
-            </label>`
+          : `<fieldset class="targeting stack">
+              <legend>Send toward</legend>
+              <div class="tabs targeting-tabs">
+                <button type="button" class="${state.targetMode === "country" ? "active" : ""}" data-target-mode="country">Country</button>
+                <button type="button" class="${state.targetMode === "pin" ? "active" : ""}" data-target-mode="pin">Map pin</button>
+              </div>
+              <label id="country-target" class="${state.targetMode === "country" ? "" : "hide"}">Target country
+                <select id="target-country">${countryOptions(state.profile?.country || "US")}</select>
+              </label>
+              <div id="pin-target" class="stack ${state.targetMode === "pin" ? "" : "hide"}">
+                <div id="send-map" class="map" aria-label="Choose a painting destination on a map"></div>
+                <p id="send-coordinates" class="meta">${coordinateLabel(state.targetPin)}</p>
+              </div>
+            </fieldset>`
       }
       <button ${!isConfigured || !state.session || (!friend && remaining <= 0) ? "disabled" : ""}>Send painting</button>
     </form>
@@ -450,15 +511,51 @@ function bindSend() {
   document.querySelector("#compose-note")?.addEventListener("input", (event) => {
     document.querySelector("#note-count").textContent = String(event.target.value.length);
   });
+  let sendMap = null;
+  const showTargetMode = (mode) => {
+    state.targetMode = mode;
+    document.querySelectorAll("[data-target-mode]").forEach((button) => {
+      button.classList.toggle("active", button.dataset.targetMode === mode);
+    });
+    document.querySelector("#country-target")?.classList.toggle("hide", mode !== "country");
+    document.querySelector("#pin-target")?.classList.toggle("hide", mode !== "pin");
+    if (mode === "pin" && !sendMap) {
+      sendMap = createMapPicker("send-map", state.targetPin, (location) => {
+        state.targetPin = location;
+        document.querySelector("#send-coordinates").textContent = coordinateLabel(location);
+      });
+    }
+  };
+  document.querySelectorAll("[data-target-mode]").forEach((button) => {
+    button.addEventListener("click", () => showTargetMode(button.dataset.targetMode));
+  });
+  if (!state.composeFriend && state.targetMode === "pin") showTargetMode("pin");
   document.querySelector("#compose")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!isConfigured) return setMessage("Fill js/config.js before sending paintings.");
     if (!state.session) return setMessage("Sign in before sending paintings.");
     const note = document.querySelector("#compose-note").value.trim();
     const friend = state.composeFriend;
+    if (!friend && state.targetMode === "pin" && !state.targetPin) {
+      return setMessage("Drop a pin before sending the painting.");
+    }
     const payload = friend
       ? { p_artwork: state.selectedArtwork, p_note: note, p_friend_id: friend.id }
-      : { p_artwork: state.selectedArtwork, p_note: note, p_target_country: document.querySelector("#target-country").value };
+      : state.targetMode === "pin"
+        ? {
+            p_artwork: state.selectedArtwork,
+            p_note: note,
+            p_target_country: null,
+            p_target_lat: state.targetPin.lat,
+            p_target_lng: state.targetPin.lng
+          }
+        : {
+            p_artwork: state.selectedArtwork,
+            p_note: note,
+            p_target_country: document.querySelector("#target-country").value,
+            p_target_lat: null,
+            p_target_lng: null
+          };
     const rpc = friend ? "send_to_friend" : "send_painting";
     const { error } = await supabase.rpc(rpc, payload);
     if (error) return setMessage(error.message);
@@ -506,7 +603,7 @@ function journalCard(item) {
   return `
     <article class="journal-card" data-open-send="${h(item.id)}">
       <div class="row">
-        <img class="thumb" src="${h(imageUrl(art.image_id, 400))}" alt="${h(art.title)}">
+        <img class="thumb" src="${h(art.image_small)}" alt="${h(art.title)}" loading="lazy">
         <div class="body">
           <p class="card-title">${h(art.title)}</p>
           <p class="meta">${h(firstLine(item.note))}</p>
@@ -643,10 +740,54 @@ function renderYou() {
           <p class="meta">${h(countryName(state.profile?.country))}</p>
         </div>
         <p class="meta">${h(state.session.user.email)}</p>
+        <div class="stack location-picker">
+          <div class="split">
+            <div>
+              <p class="card-title">Location</p>
+              <p id="profile-location-state" class="meta">${state.profile?.lat != null && state.profile?.lng != null ? "On the map" : "Not on the map"}</p>
+            </div>
+            <button type="button" id="remove-location" class="ghost" ${state.profile?.lat == null ? "disabled" : ""}>Remove</button>
+          </div>
+          <div id="profile-map" class="map" aria-label="Set or change your location on a map"></div>
+          <p id="profile-coordinates" class="meta">${coordinateLabel(
+            state.profile?.lat != null && state.profile?.lng != null
+              ? { lat: state.profile.lat, lng: state.profile.lng }
+              : null
+          )}</p>
+          <button type="button" id="save-location" disabled>Save location</button>
+        </div>
         <button id="sign-out" class="secondary">Sign out</button>
       </div>
     `
   );
+  let locationDraft =
+    state.profile?.lat != null && state.profile?.lng != null
+      ? { lat: state.profile.lat, lng: state.profile.lng }
+      : null;
+  createMapPicker("profile-map", locationDraft, (location) => {
+    locationDraft = location;
+    document.querySelector("#profile-coordinates").textContent = coordinateLabel(location);
+    document.querySelector("#save-location").disabled = false;
+  });
+  document.querySelector("#save-location")?.addEventListener("click", async () => {
+    if (!locationDraft) return;
+    const { error } = await supabase
+      .from("profiles")
+      .update({ lat: locationDraft.lat, lng: locationDraft.lng })
+      .eq("id", state.session.user.id);
+    if (error) return setMessage(error.message);
+    state.profile = { ...state.profile, ...locationDraft };
+    setMessage("Your map location was saved.");
+  });
+  document.querySelector("#remove-location")?.addEventListener("click", async () => {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ lat: null, lng: null })
+      .eq("id", state.session.user.id);
+    if (error) return setMessage(error.message);
+    state.profile = { ...state.profile, lat: null, lng: null };
+    setMessage("Your map location was removed.");
+  });
   document.querySelector("#sign-out")?.addEventListener("click", async () => {
     await supabase.auth.signOut();
     state.profile = null;

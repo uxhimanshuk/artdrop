@@ -305,6 +305,41 @@ img {
   font-size: 0.82rem;
 }
 
+.targeting {
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.targeting legend {
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.targeting-tabs {
+  width: 100%;
+}
+
+.location-picker {
+  min-width: 0;
+}
+
+.map {
+  z-index: 0;
+  width: 100%;
+  height: 300px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #e6e3da;
+}
+
+.map .leaflet-control-attribution {
+  font-size: 9px;
+}
+
 .tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
