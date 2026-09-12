@@ -1,3 +1,5 @@
 .deploy-log
 .netlify/
 supabase/.temp/
+_STATUS.md
+BUILD-NOTES.md
