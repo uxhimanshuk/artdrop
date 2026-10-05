@@ -94,5 +94,5 @@ repository, and there shouldn't be one in any deployment's client bundle.
 
 ---
 
-Built by [Himanshu Kalra](https://uxrhimanshu.com). MIT licensed. Artwork is
+Built by [Himanshu Kalra](https://himanshukalra.com). MIT licensed. Artwork is
 public domain, served by the Metropolitan Museum of Art Collection API.
